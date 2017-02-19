@@ -46,7 +46,6 @@
                     if (cached_song.buffer !== null)
                     {
                         player = new ChiptuneJsPlayer( new ChiptuneJsConfig(0) );
-                        console.log("plaing " + cached_song.id);
                         player.play(cached_song.buffer);
                         printSongName();
                         document.getElementsByTagName("img")[0].setAttribute("src", "img/pause.svg");
