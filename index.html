@@ -1,141 +1,148 @@
 <!DOCTYPE html>
-<html class="no-js">
-  <head>
-    <meta charset="utf-8">
-    <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
-    <title></title>
-    <meta name="description" content="">
-    <meta name="viewport" content="width=device-width">
-
-    <link rel="stylesheet" href="css/normalize.min.css">
-    <link rel="stylesheet" href="css/screen.css">
-
+<html>
+    <head>
+    <meta charset="UTF-8">
+    <meta name="keywords" content="radio, 8-bit, chiptune, tracker music, radio.xm, xm, mod, it, s3m">
+    <meta name="description" content="An endless stream of tracker music.">
+    <link rel="stylesheet" type="text/css" href="css/style.css">
     <script type="text/javascript" src="js/libopenmpt.js"></script>
-    <script type="text/javascript" src="js/chiptune2.js"></script>
-    <script type="text/javascript">
-      var player;
+        <script type="text/javascript" src="js/chiptune2.js"></script>
+        <script type="text/javascript">
+            var download_prefix = "https://api.modarchive.org/downloads.php?moduleid=";
+            var cached_song = {buffer: null, id: null};
+            setInterval(loading, 300);
 
-      function init() {
-        if (player == undefined) {
-          player = new ChiptuneJsPlayer(new ChiptuneJsConfig(-1));
-        }
-        else {
-          player.stop();
-          playPauseButton();
-        }
-      }
+            loadNextSong();
 
-      function setMetadata(filename) {
-        var metadata = player.metadata();
-        if (metadata['title'] != '') {
-          document.getElementById('title').innerHTML = metadata['title'];
-        }
-        else {
-          document.getElementById('title').innerHTML = filename;
-        }
+            function loading()
+            {
+                if (typeof player === "undefined" || player === null || player.currentPlayingNode === null || player.currentPlayingNode.modulePtr === 0)
+                {
+                    switch ( document.getElementById("title").innerHTML )
+                    {
+                        case "Loading":
+                            document.getElementById("title").innerHTML = "Loading.";
+                            break;
+                        case "Loading.":
+                            document.getElementById("title").innerHTML = "Loading..";
+                            break;
+                        case "Loading..":
+                            document.getElementById("title").innerHTML = "Loading...";
+                            break;
+                        case "Loading...":
+                            document.getElementById("title").innerHTML = "Loading";
+                            break;
+                        default:
+                            document.getElementById("title").innerHTML = "Loading...";
+                            break;
+                    }
+                }
+            }
 
-        if (metadata['artist'] != '') {
-          document.getElementById('artist').innerHTML = '<br />' + metadata['artist'];
-        }
-        else {
-          document.getElementById('artist').innerHTML = '';
-        }
-      }
+            function loadNextSong()
+            {
+                if (typeof player === "undefined" || player === null)
+                {
+                    if (cached_song.buffer !== null)
+                    {
+                        player = new ChiptuneJsPlayer( new ChiptuneJsConfig(0) );
+                        console.log("plaing " + cached_song.id);
+                        player.play(cached_song.buffer);
+                        printSongName();
+                        document.getElementsByTagName("img")[0].setAttribute("src", "img/pause.svg");
+                    }
+                }
 
-      function loadURL(path) {
-        init();
-        player.load(path, function(buffer) {
-          player.play(buffer);
-          setMetadata(path);
-          pausePauseButton();
-        });
-      }
+                var next_song_id = Math.floor((Math.random() * 200000) + 1);
+                var xhr = new XMLHttpRequest();
+                xhr.open("GET", download_prefix + next_song_id);
+                xhr.responseType = "arraybuffer";
+                xhr.timeout = 30000;
+                xhr.send();
+                xhr.onload = function()
+                {
+                    if(xhr.status && xhr.status === 200)
+                    {
+                        if (xhr.response.byteLength < 20)
+                        {
+                            // No such song, try again
+                            loadNextSong();
+                        }
+                        else
+                        {
+                            if (cached_song.buffer === null)
+                            {
+                                cached_song.buffer = xhr.response;
+                                cached_song.id = next_song_id;
+                                loadNextSong();
+                            }
+                            else
+                            {
+                                cached_song.buffer = xhr.response;
+                                cached_song.id = next_song_id;
+                                player.onEnded(destruct);
+                            }
+                        }
+                    }
+                }
+                xhr.ontimeout = function()
+                {
+                    destruct();
+                }
+            }
 
-      function loadFile(file) {
-        init();
-        player.load(file, function(buffer) {
-          player.play(buffer);
-          setMetadata(file.name);
-          pausePauseButton();
-        });
-      }
+            function destruct()
+            {
+                player = null;
+                loadNextSong();
+            }
 
-      function pauseButton() {
-        player.togglePause();
-        switchPauseButton();
-      }
+            function printSongName()
+            {
+                var metadata = player.metadata();
 
-      function switchPauseButton() {
-        var button = document.getElementById('pause')
-        if (button) {
-          button.id = "play_tmp";
-        }
-        button = document.getElementById('play')
-        if (button) {
-          button.id = "pause";
-        }
-        button = document.getElementById('play_tmp')
-        if (button) {
-          button.id = "play";
-        }
-      }
+                document.getElementById("title").innerHTML = "<a href=" + download_prefix + cached_song.id + "></a>";
 
-      function playPauseButton() {
-        var button = document.getElementById('pause')
-        if (button) {
-          button.id = "play";
-        }
-      }
+                if (metadata["title"] != "")
+                {
+                    document.getElementsByTagName("a")[0].innerHTML = metadata["title"];
+                }
+                else
+                {
+                    document.getElementsByTagName("a")[0].innerHTML += "Unnamed";
+                }
 
-      function pausePauseButton() {
-        var button = document.getElementById('play')
-        if (button) {
-          button.id = "pause";
-        }
-      }
+                if (metadata["artist"] != "")
+                {
+                    document.getElementsByTagName("a")[0].innerHTML += " by " + metadata["artist"];
+                }
+                else
+                {
+                    document.getElementsByTagName("a")[0].innerHTML += " by Unknown";
+                }
+            }
 
-      var fileaccess = document.querySelector('*');
-      fileaccess.ondrop = function(e) {
-        e.preventDefault();
-        var file = e.dataTransfer.files[0];
-        init();
+            function toggle()
+            {
+                player.togglePause();
+                if (document.getElementsByTagName("img")[0].getAttribute("src") === "img/play.svg")
+                {
+                    document.getElementsByTagName("img")[0].setAttribute("src", "img/pause.svg");
+                }
+                else
+                {
+                    document.getElementsByTagName("img")[0].setAttribute("src", "img/play.svg");
+                }
+            }
 
-        player.load(file, function(buffer) {
-          player.play(buffer);
-          setMetadata(file.name);
-          pausePauseButton();
-        });
-      }
-
-      fileaccess.ondragenter = function(e){e.preventDefault();}
-      fileaccess.ondragover = function(e){e.preventDefault();}
+            document.onkeypress=function(e){
+                toggle();
+            }
     </script>
-  </head>
-  <body>
-    <div class="bg bg1"></div>
-    <div id="content">
-      <div id="info" class="banner">
-        <p>Usage: Drop any module file (.mod, .xm, .it, etc.) on this page and hit play!</p>
-      </div>
-      <div id="headline" class="banner"><h1>chiptune.js</h1></div>
-      <div id="metadata" class="banner">
-        <span id="title">nothing loaded</span>
-        <span id="artist"></span>
-      </div>
-      <div id="controls" class="banner">
-        <a onclick="pauseButton()" id="play" class="control"></a>
-      </div>
-      <div id="choosefile" class="banner">
-        <input type="file" id="files" name="files" onchange="loadFile(this.files[0])"/>
-      </div>
-      <div id="demos" class="banner"><div>
-        <h2>Demo Songs</h2>
-        <a class="song" onclick="loadURL('tunes/mysteristerium.mod')" href="#">mysterysterium by maktone<span class="size">23kb</span></a>
-        <a class="song" onclick="loadURL('tunes/rfchip001.xm')" href="#">RF chip #001 by Dubmood and Bliss<span class="size">31kb</span></a>
-        <a class="song" onclick="loadURL('tunes/cydonian sky.xm')" href="#">Cydonian Sky by Dubmood<span class="size">31kb</span></a>
-        <a class="song" onclick="loadURL('tunes/chipsounds.mod')" href="#">Chipsounds by 4-Mat<span class="size">18kb</span></a>
-        <!-- <a class="song" onclick="loadURL('tunes/')" href="#"> by </a> -->
-      </div></div>
-    </div>
-  </body>
+    </head>
+    <body>
+        <div id="main">
+            <div id="title">Loading...</div>
+            <div id="button"><img src="img/play.svg" onclick="toggle()"></div>
+    </body>
 </html>
